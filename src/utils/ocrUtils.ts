@@ -18,7 +18,7 @@ interface ProcessingResult {
 }
 
 export const processDocument = async (file: File): Promise<ProcessingResult> => {
-  console.log(`Processing document: ${file.name}`);
+  console.log(`📄 Processing: ${file.name}`);
   
   try {
     let ocrText = '';
@@ -32,17 +32,27 @@ export const processDocument = async (file: File): Promise<ProcessingResult> => 
       ocrText = await extractTextFromImage(file);
     }
     
-    console.log(`OCR Text Preview: ${ocrText.slice(0, 200)}`);
+    console.log(`📝 OCR Preview: ${ocrText.slice(0, 200).replace(/\n/g, ' ')}`);
     
-    const classification = classifyDocument(ocrText);
+    const category = classifyDocument(ocrText);
     
-    return {
-      category: classification.category,
-      confidence: classification.confidence,
-      ocrText: ocrText
-    };
+    if (category) {
+      console.log(`✅ Classified as: ${category}`);
+      return {
+        category: category,
+        confidence: 1.0, // Full confidence when we find a match
+        ocrText: ocrText
+      };
+    } else {
+      console.log(`❌ Could not classify: ${file.name} → Unclassified`);
+      return {
+        category: 'Unclassified',
+        confidence: 0,
+        ocrText: ocrText
+      };
+    }
   } catch (error) {
-    console.error(`Error processing ${file.name}:`, error);
+    console.error(`⚠️ Error reading ${file.name}:`, error);
     return {
       category: 'Unclassified',
       confidence: 0,
@@ -55,6 +65,11 @@ const extractTextFromImage = async (file: File): Promise<string> => {
   const worker = await createWorker('eng+hin');
   
   try {
+    // Configure OCR similar to your Python script (--psm 6)
+    await worker.setParameters({
+      tessedit_pageseg_mode: '6', // Assume a single uniform block of text
+    });
+    
     const { data: { text } } = await worker.recognize(file);
     await worker.terminate();
     return text.toLowerCase();
@@ -81,30 +96,14 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
   });
 };
 
-const classifyDocument = (text: string): { category: string; confidence: number } => {
-  let bestMatch = { category: 'Unclassified', confidence: 0 };
-  
+// Classification logic matching your Python script exactly
+const classifyDocument = (text: string): string | null => {
   for (const [category, keywords] of Object.entries(CATEGORIES)) {
-    let matches = 0;
-    let totalKeywords = keywords.length;
-    
     for (const keyword of keywords) {
       if (text.includes(keyword.toLowerCase())) {
-        matches++;
+        return category; // Return immediately on first match (like Python script)
       }
     }
-    
-    const confidence = matches / totalKeywords;
-    
-    if (confidence > bestMatch.confidence) {
-      bestMatch = { category, confidence };
-    }
   }
-  
-  // If confidence is too low, classify as unclassified
-  if (bestMatch.confidence < 0.1) {
-    bestMatch = { category: 'Unclassified', confidence: 0 };
-  }
-  
-  return bestMatch;
+  return null; // Return null if no category found (like Python script)
 };
