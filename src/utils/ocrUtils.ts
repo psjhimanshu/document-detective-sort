@@ -1,5 +1,4 @@
-
-import { createWorker } from 'tesseract.js';
+import { createWorker, PSM } from 'tesseract.js';
 
 // Document categories and their keywords (based on your Python script)
 const CATEGORIES = {
@@ -67,7 +66,7 @@ const extractTextFromImage = async (file: File): Promise<string> => {
   try {
     // Configure OCR similar to your Python script (--psm 6)
     await worker.setParameters({
-      tessedit_pageseg_mode: '6', // Assume a single uniform block of text
+      tessedit_pageseg_mode: PSM.SINGLE_UNIFORM_BLOCK, // PSM 6: Assume a single uniform block of text
     });
     
     const { data: { text } } = await worker.recognize(file);
